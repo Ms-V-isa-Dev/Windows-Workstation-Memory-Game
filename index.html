@@ -535,7 +535,12 @@
 
             <div class="game-section">
                 <div class="instructions">
-                    <strong>Instructions:</strong> Click on cards to flip them over and find matching pairs. Your score is based on matches found. Click "End Game & Score" when you want to finish, then click "End Turn".<br>
+                    <strong>Instructions:</strong> Click on cards to flip them over and find matching pairs. 
+                    <ul style="margin-top: 10px; margin-left: 20px;">
+                        <li>✅ <strong>Match found:</strong> Cards stay flipped, keep playing!</li>
+                        <li>❌ <strong>No match:</strong> Your turn automatically ends after 2 seconds</li>
+                        <li>🏁 <strong>Optional:</strong> Click "End Game & Score" to end your turn early</li>
+                    </ul>
                     <div style="margin-top: 10px; display: flex; gap: 20px; align-items: center; justify-content: center; flex-wrap: wrap;">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <div style="width: 30px; height: 30px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 5px;"></div>
@@ -563,9 +568,9 @@
                     </div>
                 </div>
 
-                <button class="submit-btn" onclick="endMemoryGame()">End Game & Score</button>
-                <button class="reset-btn" onclick="resetMemoryGame()">New Game</button>
-                <button class="end-turn-btn" id="endTurnBtn" onclick="endTurn()">End Turn</button>
+                <button class="submit-btn" onclick="endMemoryGame()">End Turn Early (Optional)</button>
+                <button class="reset-btn" onclick="resetMemoryGame()">Reset Game</button>
+                <button class="end-turn-btn" id="endTurnBtn" onclick="endTurn()">Next Player</button>
                 <div class="score-display" id="memoryScore"></div>
 
                 <div class="memory-grid" id="memoryGrid"></div>
@@ -618,6 +623,7 @@
         let moves = 0;
         let timer = 0;
         let timerInterval = null;
+        let isProcessing = false; // Prevent clicks during turn transition
 
         // Player Management
         function setPlayerNames() {
@@ -778,7 +784,8 @@
         function flipCard(e) {
             const card = e.currentTarget;
             
-            if (card.classList.contains('flipped') || card.classList.contains('matched') || flippedCards.length === 2) {
+            // Prevent clicking during processing or if conditions not met
+            if (isProcessing || card.classList.contains('flipped') || card.classList.contains('matched') || flippedCards.length === 2) {
                 return;
             }
 
@@ -788,6 +795,7 @@
             if (flippedCards.length === 2) {
                 moves++;
                 document.getElementById('movesCount').textContent = moves;
+                isProcessing = true; // Lock the board
                 
                 setTimeout(checkMatch, 800);
             }
@@ -799,11 +807,16 @@
             const id2 = card2.dataset.id;
 
             if (id1 === id2) {
+                // Match found - cards stay flipped
                 card1.classList.add('matched');
                 card2.classList.add('matched');
                 matchedPairsCount++;
                 document.getElementById('matchesCount').textContent = matchedPairsCount;
 
+                // Unlock the board so player can continue
+                isProcessing = false;
+
+                // Check if all pairs matched
                 if (matchedPairsCount === memoryPairs.length) {
                     clearInterval(timerInterval);
                     setTimeout(() => {
@@ -811,15 +824,37 @@
                     }, 500);
                 }
             } else {
+                // No match - flip cards back and end turn automatically
                 card1.classList.remove('flipped');
                 card2.classList.remove('flipped');
+                
+                // Keep board locked and automatically end the turn after a mismatch
+                setTimeout(() => {
+                    autoEndTurn();
+                }, 1000);
             }
 
             flippedCards = [];
         }
 
+        function autoEndTurn() {
+            // Calculate score based on current matches
+            const score = Math.round((matchedPairsCount / memoryPairs.length) * 100);
+            playerScores[players[currentPlayerIndex]] = score;
+
+            const scoreDisplay = document.getElementById('memoryScore');
+            scoreDisplay.style.display = 'block';
+            scoreDisplay.textContent = `${players[currentPlayerIndex]} scored: ${score}/100 points (${matchedPairsCount}/${memoryPairs.length} matches). Moving to next player...`;
+            
+            // Automatically advance to next player after showing score
+            setTimeout(() => {
+                endTurn();
+            }, 2000);
+        }
+
         function endMemoryGame() {
             clearInterval(timerInterval);
+            isProcessing = true; // Lock the board
             
             const score = Math.round((matchedPairsCount / memoryPairs.length) * 100);
             playerScores[players[currentPlayerIndex]] = score;
@@ -850,6 +885,7 @@
             flippedCards = [];
             matchedPairsCount = 0;
             moves = 0;
+            isProcessing = false; // Unlock the board
             
             document.getElementById('movesCount').textContent = '0';
             document.getElementById('matchesCount').textContent = '0';
